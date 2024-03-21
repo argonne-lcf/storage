@@ -1,0 +1,130 @@
+{
+    "mpi"               : {
+        "command"       : "mpiexec",
+        "ranks"         : "16",
+        "configuration" : "<ENV_EXTRAS> -np <NTOTRANKS> -ppn 16 -d 1  --cpu-bind \"list:0,1,2,3,4,5,6,7,52,53,54,55,56,57,58,59\"  --no-vni -genvall "
+                          },
+    "vol"               : { },
+    "file-system"       : { },
+    "directory"         : "<FULL_STORAGE_DIR>",
+    "benchmarks": [
+                    {
+                        "benchmark"     : "write",
+                        "file"          : "4_test_contig_contig.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "CONTIG",
+                                        "FILE_PATTERN"                      : "CONTIG",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "COLLECTIVE_DATA"                   : "YES",
+                                        "COLLECTIVE_METADATA"               : "YES",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "4194304",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "CSV_FILE"                          : "4_output_contig_contig_write_large_coll.csv",
+                                        "MODE"                              : "SYNC"
+                                        }
+                    },
+                    {
+                        "benchmark"     : "read",
+                        "file"          : "15_test_contig_contig.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "CONTIG",
+                                        "FILE_PATTERN"                      : "CONTIG",
+                                        "READ_OPTION"                       : "FULL",
+                                        "COLLECTIVE_DATA"                   : "YES",
+                                        "COLLECTIVE_METADATA"               : "YES",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "4194304",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "CSV_FILE"                          : "15_output_contig_contig_read_large_coll.csv",
+                                        "MODE"                              : "SYNC"
+                                        }
+                    },
+                    {
+                        "benchmark"     : "write",
+                        "file"          : "5_test_inter_inter.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "INTERLEAVED",
+                                        "FILE_PATTERN"                      : "INTERLEAVED",
+                                        "COLLECTIVE_DATA"                   : "YES",
+                                        "COLLECTIVE_METADATA"               : "YES",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "4194304",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "CSV_FILE"                          : "5_output_inter_inter_write_large_coll.csv",
+                                        "MODE"                              : "SYNC"
+                                        }
+                    },
+                    {
+                        "benchmark"     : "write",
+                        "file"          : "6_test_contig_strided.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "CONTIG",
+                                        "FILE_PATTERN"                      : "STRIDED",
+                                        "COLLECTIVE_DATA"                   : "YES",
+                                        "COLLECTIVE_METADATA"               : "YES",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "4194304",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "STRIDE_SIZE"                       : "4",
+                                        "CSV_FILE"                          : "6_output_contig_strided_write_large_coll.csv",
+                                        "MODE"                              : "SYNC"
+                                        }
+                    },
+                    {
+                        "benchmark"     : "read",
+                        "file"          : "16_test_contig_strided.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "CONTIG",
+                                        "FILE_PATTERN"                      : "STRIDED",
+                                        "READ_OPTION"                       : "FULL",
+                                        "COLLECTIVE_DATA"                   : "YES",
+                                        "COLLECTIVE_METADATA"               : "YES",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "4194304",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "STRIDE_SIZE"                       : "4",
+                                        "CSV_FILE"                          : "16_output_contig_strided_read_large_coll.csv",
+                                        "MODE"                              : "SYNC"
+                                        }
+                    },
+                    {
+                    "benchmark"     : "metadata",
+                    "file"          : "2_test_metadata_contig_coll.h5",
+                    "configuration" : {
+                                    "version"                               : "0",
+                                    "steps"                                 : "20",
+                                    "arrays"                                : "100",
+                                    "rows"                                  : "100",
+                                    "columns"                               : "200",
+                                    "process-rows"                          : "4",
+                                    "process-columns"                       : "4",
+                                    "scaling"                               : "weak",
+                                    "dataset-rank"                          : "2",
+                                    "slowest-dimension"                     : "step",
+                                    "layout"                                : "contiguous",
+                                    "mpi-io"                                : "collective",       
+                                    "csv-file"                              : "2_output_metadatastress_iotest_contig_coll.csv"
+                                    }
+                }
+                ]
+}
