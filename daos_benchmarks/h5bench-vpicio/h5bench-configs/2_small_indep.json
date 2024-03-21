@@ -1,0 +1,124 @@
+{
+    "mpi"               : {
+        "command"       : "mpiexec",
+        "ranks"         : "16",
+        "configuration" : "<ENV_EXTRAS> -np <NTOTRANKS> -ppn 16 -d 1  --cpu-bind \"list:0,1,2,3,4,5,6,7,52,53,54,55,56,57,58,59\"  --no-vni -genvall "
+                          },
+    "vol"               : { },
+    "file-system"       : { },
+    "directory"         : "<FULL_STORAGE_DIR>",
+    "benchmarks": [
+                    {
+                        "benchmark"     : "write",
+                        "file"          : "7_test_contig_contig.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "CONTIG",
+                                        "FILE_PATTERN"                      : "CONTIG",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "64",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "CSV_FILE"                          : "7_output_contig_contig_write_small_indep.csv",
+                                        "MODE"                              : "SYNC"
+                                        }
+                    },
+                    {
+                        "benchmark"     : "read",
+                        "file"          : "17_test_contig_contig.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "CONTIG",
+                                        "FILE_PATTERN"                      : "CONTIG",
+                                        "READ_OPTION"                       : "FULL",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "64",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "CSV_FILE"                          : "17_output_contig_contig_read_small_indep.csv",
+                                        "MODE"                              : "SYNC"
+                                        }
+                    },
+                    {
+                        "benchmark"     : "write",
+                        "file"          : "8_test_inter_inter.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "INTERLEAVED",
+                                        "FILE_PATTERN"                      : "INTERLEAVED",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "64",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "CSV_FILE"                          : "8_output_inter_inter_write_small_indep.csv",
+                                        "MODE"                              : "SYNC"
+                                        }
+                    },
+                    {
+                        "benchmark"     : "write",
+                        "file"          : "9_test_contig_strided.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "CONTIG",
+                                        "FILE_PATTERN"                      : "STRIDED",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "64",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "STRIDE_SIZE"                       : "4",
+                                        "CSV_FILE"                          : "9_output_contig_strided_write_small_indep.csv",
+                                        "MODE"                              : "SYNC",
+                                        "BLOCK_SIZE"                        : "2",
+                                        "BLOCK_CNT"                         : "8"
+                                        }
+                    },
+                    {
+                        "benchmark"     : "read",
+                        "file"          : "18_test_contig_strided.h5",
+                        "configuration": {
+                                        "MEM_PATTERN"                       : "CONTIG",
+                                        "FILE_PATTERN"                      : "STRIDED",
+                                        "READ_OPTION"                       : "FULL",
+                                        "TIMESTEPS"                         : "5",
+                                        "DELAYED_CLOSE_TIMESTEPS"           : "2",
+                                        "EMULATED_COMPUTE_TIME_PER_TIMESTEP": "1 s", 
+                                        "NUM_DIMS"                          : "1",
+                                        "DIM_1"                             : "64",
+                                        "DIM_2"                             : "1",
+                                        "DIM_3"                             : "1",
+                                        "STRIDE_SIZE"                       : "4",
+                                        "CSV_FILE"                          : "18_output_contig_strided_read_small_indep.csv",
+                                        "MODE"                              : "SYNC",
+                                        "BLOCK_SIZE"                        : "2",
+                                        "BLOCK_CNT"                         : "8"
+                                        }
+                    },
+                    {
+                    "benchmark"     : "metadata",
+                    "file"          : "3_test_metadata_contig_indep.h5",
+                    "configuration" : {
+                                    "version"                               : "0",
+                                    "steps"                                 : "20",
+                                    "arrays"                                : "50",
+                                    "rows"                                  : "10",
+                                    "columns"                               : "20",
+                                    "process-rows"                          : "4",
+                                    "process-columns"                       : "4",
+                                    "scaling"                               : "weak",
+                                    "dataset-rank"                          : "2",
+                                    "slowest-dimension"                     : "step",
+                                    "layout"                                : "contiguous",
+                                    "mpi-io"                                : "independent",       
+                                    "csv-file"                              : "3_output_metadatastress_iotest_contig_indep.csv"
+                                    }
+                }
+                ]
+}
