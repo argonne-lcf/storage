@@ -11,14 +11,20 @@ module use /soft/modulefiles
 module load daos
 env | grep DRPC  
 ps -ef|grep daos
+# clush --hostfile ${PBS_NODEFILE}  'ps -ef|grep agent|grep -v grep'  | dshbak -c   # For debugging issues with daos 
 DAOS_POOL=datascience
 DAOS_CONT=hacc_1
-daos pool query ${DAOS_POOL} #To confirm if you have access to your pool
-# daos container create --type POSIX --dir-oclass=S1 --file-oclass=SX  ${DAOS_POOL}  ${DAOS_CONT} #This is required for 1 time only
-# Note there is no data recovery on crash on this oclass mode. 
-
+daos pool query ${DAOS_POOL}    #To confirm if you have access to your pool
+daos cont list ${DAOS_POOL} 
+# daos container create --type POSIX --dir-oclass=S1 --file-oclass=SX  ${DAOS_POOL}  ${DAOS_CONT}   #This is required for 1 time only # Note there is no data recovery on crash on this oclass mode. 
+# daos container create --type POSIX --dir-oclass=S1 --file-oclass=EC_8P2GX  ${DAOS_POOL}  ${DAOS_CONT} --properties rd_fac:1 # If you need data recovery on crash
+ 
 launch-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}
 mount|grep dfuse
+# ls /tmp/${DAOS_POOL}/${DAOS_CONT} # To check your files inside your container
+# cp /lus/flare/projects/CSC250STDM10_CNDA/kaushik/thunder/svm_mpi/data/real-sim_M100000_K25000_S0.836 /tmp/${DAOS_POOL}/${DAOS_CONT} # To copy your dataset to daos container- one time thing
+# check https://docs.daos.io/v2.4/testing/datamover/ for better ways to move data from lustre to daos 
+# check : https://github.com/argonne-lcf/storage/tree/main/daos_example/data-mover-lustre2daos-example
 
 
 cd $PBS_O_WORKDIR
@@ -45,10 +51,6 @@ date
 LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec ${EXT_ENV1} -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1}  --no-vni -genvall  ${GenericIOBenchmarkWrite} /tmp/${DAOS_POOL}/${DAOS_CONT}/daos_pos_test_kaus_1_ 4000 5
 date
 LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec ${EXT_ENV1} -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1}  --no-vni -genvall  ${GenericIOBenchmarkRead}  /tmp/${DAOS_POOL}/${DAOS_CONT}/daos_pos_test_kaus_1_ 
-date
-LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec ${EXT_ENV2} -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1}  --no-vni -genvall  ${GenericIOBenchmarkWrite} -a /tmp/${DAOS_POOL}/${DAOS_CONT}/daos_pos_test_kaus_2_ 4000 5
-date
-LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec ${EXT_ENV2} -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1}  --no-vni -genvall  ${GenericIOBenchmarkRead}  -a /tmp/${DAOS_POOL}/${DAOS_CONT}/daos_pos_test_kaus_2_  
 date
 
 
