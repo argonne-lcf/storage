@@ -1,1 +1,0 @@
-use io-500 rules and run mdtest easy & hard

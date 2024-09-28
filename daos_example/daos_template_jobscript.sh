@@ -7,59 +7,52 @@
 #PBS -ldaos=default
 
 # qsub -l select=512:ncpus=208 -l walltime=01:00:00 -A Aurora_deployment -l filesystems=flare -q lustre_scaling  -ldaos=default  ./pbs_script.sh or - I 
+
+export TZ='/usr/share/zoneinfo/US/Central'
+date
 module use /soft/modulefiles
 module load daos
-env | grep DRPC  
-ps -ef|grep daos
-# clush --hostfile ${PBS_NODEFILE}  'ps -ef|grep agent|grep -v grep'  | dshbak -c   # For debugging issues with daos 
+env | grep DRPC                                     #optional
+ps -ef|grep daos                                    #optional
+clush --hostfile ${PBS_NODEFILE}  'ps -ef|grep agent|grep -v grep'  | dshbak -c  #optional
 DAOS_POOL=datascience
-DAOS_CONT=hacc_1
-daos pool query ${DAOS_POOL}    #To confirm if you have access to your pool
-daos cont list ${DAOS_POOL} 
-# daos container create --type POSIX --dir-oclass=S1 --file-oclass=SX  ${DAOS_POOL}  ${DAOS_CONT}   #This is required for 1 time only # Note there is no data recovery on crash on this oclass mode. 
-# daos container create --type POSIX --dir-oclass=S1 --file-oclass=EC_8P2GX  ${DAOS_POOL}  ${DAOS_CONT} --properties rd_fac:1 # If you need data recovery on crash
- 
+DAOS_CONT=thundersvm_exp1
+daos pool query ${DAOS_POOL}                        #optional
+daos cont list ${DAOS_POOL}                         #optional
+daos container destroy   ${DAOS_POOL}  ${DAOS_CONT} #optional
+daos container create --type POSIX ${DAOS_POOL}  ${DAOS_CONT} --properties rd_fac:1 
+daos container query     ${DAOS_POOL}  ${DAOS_CONT} #optional
+daos container get-prop  ${DAOS_POOL}  ${DAOS_CONT} #optional
+daos container list      ${DAOS_POOL}  #optional
 launch-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}
-mount|grep dfuse
-# ls /tmp/${DAOS_POOL}/${DAOS_CONT} # To check your files inside your container
-# cp /lus/flare/projects/CSC250STDM10_CNDA/kaushik/thunder/svm_mpi/data/real-sim_M100000_K25000_S0.836 /tmp/${DAOS_POOL}/${DAOS_CONT} # To copy your dataset to daos container- one time thing
-# check https://docs.daos.io/v2.4/testing/datamover/ for better ways to move data from lustre to daos 
-# check : https://github.com/argonne-lcf/storage/tree/main/daos_example/data-mover-lustre2daos-example
+mount|grep dfuse                                    #optional
+ls /tmp/${DAOS_POOL}/${DAOS_CONT}                   #optional
+
+# cp /lus/flare/projects/CSC250STDM10_CNDA/kaushik/thundersvm/input_data/real-sim_M100000_K25000_S0.836 /tmp/${DAOS_POOL}/${DAOS_CONT} #one time
+# daos filesystem copy --src /lus/flare/projects/CSC250STDM10_CNDA/kaushik/thundersvm/input_data/real-sim_M100000_K25000_S0.836 --dst daos://tmp/${DAOS_POOL}/${DAOS_CONT}  # check https://docs.daos.io/v2.4/testing/datamover/ 
 
 
 cd $PBS_O_WORKDIR
 echo Jobid: $PBS_JOBID
 echo Running on nodes `cat $PBS_NODEFILE`
-export TZ='/usr/share/zoneinfo/US/Central'
-date
 NNODES=`wc -l < $PBS_NODEFILE`
 RANKS_PER_NODE=12          # Number of MPI ranks per node
 NRANKS=$(( NNODES * RANKS_PER_NODE ))
 echo "NUM_OF_NODES=${NNODES}  TOTAL_NUM_RANKS=${NRANKS}  RANKS_PER_NODE=${RANKS_PER_NODE}"
 CPU_BINDING1=list:4:9:14:19:20:25:56:61:66:71:74:79
-EXT_ENV1="--env FI_CXI_DEFAULT_CQ_SIZE=1048576 --env GENERICIO_PARTITIONS_USE_NAME=0 --env GENERICIO_RANK_PARTITIONS=4"
-EXT_ENV2="--env FI_CXI_DEFAULT_CQ_SIZE=1048576 --env GENERICIO_PARTITIONS_USE_NAME=0 --env GENERICIO_RANK_PARTITIONS=4 --env GENERICIO_USE_MPIIO=1" #note GENERICIO_USE_MPIIO is used only for mpiio 
 
-GenericIOBenchmarkWrite=/lus/flare/projects/Aurora_deployment/kaushik/daos/hacc/genric-io/genericio/mpi/GenericIOBenchmarkWrite 
-GenericIOBenchmarkRead=/lus/flare/projects/Aurora_deployment/kaushik/daos/hacc/genric-io/genericio/mpi/GenericIOBenchmarkRead 
+export THUN_WS_PROB_SIZE=1024
+export ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE
+export AFFINITY_ORDERING=compact
+export RANKS_PER_TILE=1
+export PLATFORM_NUM_GPU=6
+export PLATFORM_NUM_GPU_TILES=2
 
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/*
-
-#/tmp/${DAOS_POOL}/${DAOS_CONT}/ - This is the location where daos is mounted and your app data should be stored
 
 date 
-LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec ${EXT_ENV1} -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1}  --no-vni -genvall  ${GenericIOBenchmarkWrite} /tmp/${DAOS_POOL}/${DAOS_CONT}/daos_pos_test_kaus_1_ 4000 5
+LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1}  \
+                                            --no-vni -genvall  thunder/svm_mpi/run/aurora/wrapper.sh thunder/svm_mpi/build_ws1024/bin/thundersvm-train \
+                                            -s 0 -t 2 -g 1 -c 10 -o 1  /tmp/datascience/thunder_1/real-sim_M100000_K25000_S0.836 
 date
-LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec ${EXT_ENV1} -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1}  --no-vni -genvall  ${GenericIOBenchmarkRead}  /tmp/${DAOS_POOL}/${DAOS_CONT}/daos_pos_test_kaus_1_ 
-date
-
-
-# check if LD_PRELOAD=/usr/lib64/libioil.so gives a better performance than libpil4dfs.so
 
 clean-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}
-
-# daos container query     ${DAOS_POOL}  ${DAOS_CONT} 
-# daos container get-prop  ${DAOS_POOL}  ${DAOS_CONT} 
-# daos container list      ${DAOS_POOL}  ${DAOS_CONT} 
-# daos pool      autotest  ${DAOS_POOL} 
-# daos container destroy   ${DAOS_POOL}  ${DAOS_CONT} 

@@ -1,43 +1,41 @@
 #!/bin/bash -x
-#PBS -l select=1
-#PBS -l walltime=03:30:00
-#PBS -l daos=default
+#PBS -l select=512
+#PBS -l walltime=01:00:00
 #PBS -A Aurora_deployment
-#PBS -q alcf_daos_cn
+#PBS -q lustre_scaling
 #PBS -k doe
+#PBS -ldaos=default
 
-# qsub -l select=1 -l walltime=03:30:00 -A Aurora_deployment -q alcf_daos_cn -l daos=default ./ior.sh  or - I 
+# qsub -l select=512:ncpus=208 -l walltime=01:00:00 -A Aurora_deployment -l filesystems=flare -q lustre_scaling  -ldaos=default  ./pbs_script.sh or - I 
+
 export TZ='/usr/share/zoneinfo/US/Central'
-
 date
-threads=1
-NRANKS=16
-echo cat $PBS_NODEFILE
-nnodes=$(cat $PBS_NODEFILE | wc -l)
-NTOTRANKS=$(( nnodes * NRANKS ))
-cd $PBS_O_WORKDIR 
-
 module use /soft/modulefiles
-module load daos/base
-module load mpich/51.2/icc-all-pmix-gpu 
-module list
-env|grep DRPC
-export DAOS_POOL=CSC250STDM10_CNDA
-export DAOS_CONT=kaus-h5bench-mpiio-adio-daos-$nnodes
-daos container destroy  ${DAOS_POOL} ${DAOS_CONT} 
-daos container create --type POSIX --dir-oclass=S1 --file-oclass=SX ${DAOS_POOL} ${DAOS_CONT}
-daos container get-prop ${DAOS_POOL} ${DAOS_CONT}
-daos cont      query  ${DAOS_POOL} ${DAOS_CONT}
+module load daos
+env | grep DRPC                                     #optional
+ps -ef|grep daos                                    #optional
+clush --hostfile ${PBS_NODEFILE}  'ps -ef|grep agent|grep -v grep'  | dshbak -c  #optional
+DAOS_POOL=datascience
+DAOS_CONT=ior_1
+daos pool query ${DAOS_POOL}                        #optional
+daos cont list ${DAOS_POOL}                         #optional
+daos container destroy   ${DAOS_POOL}  ${DAOS_CONT} #optional
+daos container create --type POSIX ${DAOS_POOL}  ${DAOS_CONT} --properties rd_fac:1 
+daos container query     ${DAOS_POOL}  ${DAOS_CONT} #optional
+daos container get-prop  ${DAOS_POOL}  ${DAOS_CONT} #optional
+daos container list      ${DAOS_POOL}  #optional
 launch-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}
-WCOLL=${PBS_NODEFILE} pdsh 'mount|grep dfuse'
-mount | grep daos
-export TZ='/usr/share/zoneinfo/US/Central'
+mount|grep dfuse                                    #optional
+ls /tmp/${DAOS_POOL}/${DAOS_CONT}                   #optional
 
-# export D_LOG_MASK=INFO  
-# export D_LOG_STDERR_IN_LOG=1
-# export D_LOG_FILE="$PBS_O_WORKDIR/ior-p.log" 
-# export D_IL_REPORT=1 # Logs for IL
-# LD_PRELOAD=$DAOS_PRELOAD mpiexec 
+cd $PBS_O_WORKDIR
+echo Jobid: $PBS_JOBID
+echo Running on nodes `cat $PBS_NODEFILE`
+NNODES=`wc -l < $PBS_NODEFILE`
+RANKS_PER_NODE=16          # Number of MPI ranks per node
+NRANKS=$(( NNODES * RANKS_PER_NODE ))
+echo "NUM_OF_NODES=${NNODES}  TOTAL_NUM_RANKS=${NRANKS}  RANKS_PER_NODE=${RANKS_PER_NODE}"
+CPU_BINDING1=list:4:9:14:19:20:25:30:35:56:61:66:71:72:77:82:87
 
 export HDF5_HOME=/gecko/CSC250STDM10_CNDA/kaushik/gitrepos/install-hdf5/library/install/hdf5
 export HDF5_DIR=/gecko/CSC250STDM10_CNDA/kaushik/gitrepos/install-hdf5/library/install/hdf5

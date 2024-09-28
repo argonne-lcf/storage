@@ -1,102 +1,65 @@
 #!/bin/bash -x
-#PBS -l select=1
-#PBS -l walltime=00:30:00
-#PBS -l daos=default
+#PBS -l select=512
+#PBS -l walltime=01:00:00
 #PBS -A Aurora_deployment
-#PBS -q alcf_daos_cn
+#PBS -q lustre_scaling
 #PBS -k doe
-# qsub -l select=1 -l walltime=06:00:00 -A Aurora_deployment -q alcf_daos_cn -l daos=default ./mdtest_2.sh  or - I 
-# Takes ~60 mins for single node. 
+#PBS -ldaos=default
 
-# from https://github.com/hpc/ior/blob/main/doc/mdtest.1
+# qsub -l select=512:ncpus=208 -l walltime=01:00:00 -A Aurora_deployment -l filesystems=flare -q lustre_scaling  -ldaos=default  ./pbs_script.sh or - I 
 
-# Passing  "-S" Shared file access (file only, no directories).
-# Not passing -S
-
-# Add stone walling 
-
-# "-W" seconds Specify the stonewall time in seconds.  When the stonewall timer has elapsed, the rank with the highest number of creates sets
-# "-x" filename Filename to use for stonewall synchronization between processes.
-
-
+export TZ='/usr/share/zoneinfo/US/Central'
 date
-echo cat $PBS_NODEFILE
-nnodes=$(cat $PBS_NODEFILE | wc -l)
-cd $PBS_O_WORKDIR
-module use /soft/modulefiles # Needed for ior
-module load  oneapi/eng-compiler/2022.12.30.003  #for libimf
-export LD_LIBRARY_PATH=/gecko/CSC250STDM10_CNDA/kaushik/gitrepos/install-ior/lib:$LD_LIBRARY_PATH
-export PATH=/gecko/CSC250STDM10_CNDA/kaushik/gitrepos/install-ior/bin/:$PATH
-
-threads=1
-rpn=16
-
-
 module use /soft/modulefiles
-module load daos/base
-module load mpich/51.2/icc-all-pmix-gpu 
-module list
-env|grep DRPC
-export DAOS_POOL=datascience
-export DAOS_CONT=kaus-mdtest1-$nnodes
-daos container create --type POSIX --dir-oclass=S1 --file-oclass=S1 ${DAOS_POOL} ${DAOS_CONT}
-
-# daos container create --type POSIX --dir-oclass=S1 --file-oclass=S16 ${DAOS_POOL} ${DAOS_CONT}
-# daos container create --type POSIX --dir-oclass=S1 --file-oclass=EC_16P2GX ${DAOS_POOL} ${DAOS_CONT}
-# daos container create --type POSIX --dir-oclass=S1 --file-oclass=SX ${DAOS_POOL} ${DAOS_CONT}
-
-
-
-daos container get-prop ${DAOS_POOL} ${DAOS_CONT}
-daos cont      query    ${DAOS_POOL} ${DAOS_CONT}
+module load daos
+env | grep DRPC                                     #optional
+ps -ef|grep daos                                    #optional
+clush --hostfile ${PBS_NODEFILE}  'ps -ef|grep agent|grep -v grep'  | dshbak -c  #optional
+DAOS_POOL=datascience
+DAOS_CONT=mdtest_1
+daos pool query ${DAOS_POOL}                        #optional
+daos cont list ${DAOS_POOL}                         #optional
+daos container destroy   ${DAOS_POOL}  ${DAOS_CONT} #optional
+daos container create --type POSIX ${DAOS_POOL}  ${DAOS_CONT} --properties rd_fac:1 
+daos container query     ${DAOS_POOL}  ${DAOS_CONT} #optional
+daos container get-prop  ${DAOS_POOL}  ${DAOS_CONT} #optional
+daos container list      ${DAOS_POOL}  #optional
 launch-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}
-mount|grep dfuse
+mount|grep dfuse                                    #optional
+ls /tmp/${DAOS_POOL}/${DAOS_CONT}                   #optional
+
+cd $PBS_O_WORKDIR
+echo Jobid: $PBS_JOBID
+echo Running on nodes `cat $PBS_NODEFILE`
+NNODES=`wc -l < $PBS_NODEFILE`
+RANKS_PER_NODE=16          # Number of MPI ranks per node
+NRANKS=$(( NNODES * RANKS_PER_NODE ))
+echo "NUM_OF_NODES=${NNODES}  TOTAL_NUM_RANKS=${NRANKS}  RANKS_PER_NODE=${RANKS_PER_NODE}"
+CPU_BINDING1=list:4:9:14:19:20:25:30:35:56:61:66:71:72:77:82:87
+
+export LD_LIBRARY_PATH=/lus/../daos/ior_mdtest/ior-bin/lib:$LD_LIBRARY_PATH
+export PATH=/lus/../daos/ior_mdtest/ior-bin/bin:$PATH
 
 
-# export D_LOG_MASK=INFO  
-# export D_LOG_STDERR_IN_LOG=1
-# export D_LOG_FILE="$PBS_O_WORKDIR/ior-p.log" 
-# export D_IL_REPORT=1 # Logs for IL
-# LD_PRELOAD=$DAOS_PRELOAD mpiexec 
+mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall   mdtest -d $PBS_O_WORKDIR/ -a POSIX -z 0 -F -i 5 -v -n 1                        > "lustre_mdtest_1node_posix_local${rpn}_small.txt"
+mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall   mdtest -d $PBS_O_WORKDIR/ -a POSIX -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096     > "lustre_mdtest_1node_posix_local${rpn}_big.txt"
+mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall   mdtest -d $PBS_O_WORKDIR/ -a POSIX -S -z 0 -F -i 5 -v -n 1                     > "lustre_mdtest_1node_posix_local${rpn}_small_S.txt"
+mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall   mdtest -d $PBS_O_WORKDIR/ -a POSIX -S -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096  > "lustre_mdtest_1node_posix_local${rpn}_big_S.txt"
 
+LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -z 0 -F -i 5 -v -n 1                           > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_small.txt"
+LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096        > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_big.txt"
+LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -S -z 0 -F -i 5 -v -n 1                        > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_small_S.txt"
+LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -S -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096     > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_big_S.txt"
+ 
+LD_PRELOAD=/usr/lib64/libdaos.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -z 0 -F -i 5 -v -n 1                           > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_small.txt"
+LD_PRELOAD=/usr/lib64/libdaos.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096        > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_big.txt"
+LD_PRELOAD=/usr/lib64/libdaos.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -S -z 0 -F -i 5 -v -n 1                        > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_small_S.txt"
+LD_PRELOAD=/usr/lib64/libdaos.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -S -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096     > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_big_S.txt"
 
-
-
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni  mdtest -d $PBS_O_WORKDIR/ -a POSIX -z 0 -F -i 5 -v -n 1                        > "lustre_mdtest_1node_posix_local${rpn}_small.txt"
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni  mdtest -d $PBS_O_WORKDIR/ -a POSIX -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096     > "lustre_mdtest_1node_posix_local${rpn}_big.txt"
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni  mdtest -d $PBS_O_WORKDIR/ -a POSIX -S -z 0 -F -i 5 -v -n 1                     > "lustre_mdtest_1node_posix_local${rpn}_small_S.txt"
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni  mdtest -d $PBS_O_WORKDIR/ -a POSIX -S -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096  > "lustre_mdtest_1node_posix_local${rpn}_big_S.txt"
-
-
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/*
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni --env LD_PRELOAD=$DAOS_PRELOAD mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -z 0 -F -i 5 -v -n 1                           > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_small.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni --env LD_PRELOAD=$DAOS_PRELOAD mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096        > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_big.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni --env LD_PRELOAD=$DAOS_PRELOAD mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -S -z 0 -F -i 5 -v -n 1                        > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_small_S.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni --env LD_PRELOAD=$DAOS_PRELOAD mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -S -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096     > "daos_old_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_big_S.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-
-
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni --env LD_PRELOAD=/usr/lib64/libpil4dfs.so mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -z 0 -F -i 5 -v -n 1                           > "daos_new_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_small.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni --env LD_PRELOAD=/usr/lib64/libpil4dfs.so mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096        > "daos_new_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_big.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni --env LD_PRELOAD=/usr/lib64/libpil4dfs.so mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -S -z 0 -F -i 5 -v -n 1                        > "daos_new_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_small_S.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni --env LD_PRELOAD=/usr/lib64/libpil4dfs.so mdtest -d /tmp/${DAOS_POOL}/${DAOS_CONT}/ -a POSIX -S -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096     > "daos_new_iol_mdtest_1node__posix_${DAOS_CONT}_${nnodes}_${rpn}_big_S.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-
-
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni mdtest -d / -a DFS --dfs.pool=$DAOS_POOL --dfs.cont=$DAOS_CONT  --dfs.dir_oclass=S1  --dfs.oclass=S1 --dfs.chunk_size=1m  -z 0 -F -i 5 -v -n 1                        > "daos_mdtest_1node__dfs_${DAOS_CONT}_${nnodes}_${rpn}_small.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni mdtest -d / -a DFS --dfs.pool=$DAOS_POOL --dfs.cont=$DAOS_CONT  --dfs.dir_oclass=S1  --dfs.oclass=S1 --dfs.chunk_size=1m  -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096     > "daos_mdtest_1node__dfs_${DAOS_CONT}_${nnodes}_${rpn}_big.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni mdtest -d / -a DFS --dfs.pool=$DAOS_POOL --dfs.cont=$DAOS_CONT  --dfs.dir_oclass=S1  --dfs.oclass=S1 --dfs.chunk_size=1m  -S -z 0 -F -i 5 -v -n 1                     > "daos_mdtest_1node__dfs_${DAOS_CONT}_${nnodes}_${rpn}_small_S.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
-mpiexec -np $rpn -ppn $rpn -d 13 --cpu-bind=depth  -genvall --no-vni mdtest -d / -a DFS --dfs.pool=$DAOS_POOL --dfs.cont=$DAOS_CONT  --dfs.dir_oclass=S1  --dfs.oclass=S1 --dfs.chunk_size=1m  -S -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096  > "daos_mdtest_1node__dfs_${DAOS_CONT}_${nnodes}_${rpn}_big_S.txt"
-rm -rf /tmp/${DAOS_POOL}/${DAOS_CONT}/* 
+mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d / -a DFS --dfs.pool=$DAOS_POOL --dfs.cont=$DAOS_CONT  --dfs.dir_oclass=S1  --dfs.oclass=S1 --dfs.chunk_size=1m  -z 0 -F -i 5 -v -n 1                        > "daos_mdtest_1node__dfs_${DAOS_CONT}_${nnodes}_${rpn}_small.txt"
+mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d / -a DFS --dfs.pool=$DAOS_POOL --dfs.cont=$DAOS_CONT  --dfs.dir_oclass=S1  --dfs.oclass=S1 --dfs.chunk_size=1m  -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096     > "daos_mdtest_1node__dfs_${DAOS_CONT}_${nnodes}_${rpn}_big.txt"
+mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d / -a DFS --dfs.pool=$DAOS_POOL --dfs.cont=$DAOS_CONT  --dfs.dir_oclass=S1  --dfs.oclass=S1 --dfs.chunk_size=1m  -S -z 0 -F -i 5 -v -n 1                     > "daos_mdtest_1node__dfs_${DAOS_CONT}_${nnodes}_${rpn}_small_S.txt"
+mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE} --cpu-bind ${CPU_BINDING1} --no-vni -genvall  mdtest -d / -a DFS --dfs.pool=$DAOS_POOL --dfs.cont=$DAOS_CONT  --dfs.dir_oclass=S1  --dfs.oclass=S1 --dfs.chunk_size=1m  -S -z 0 -F -i 5 -v -n 3334 -e 4096 -w 4096  > "daos_mdtest_1node__dfs_${DAOS_CONT}_${nnodes}_${rpn}_big_S.txt"
 
 
 clean-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}
