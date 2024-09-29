@@ -23,8 +23,12 @@ daos container destroy   ${DAOS_POOL}  ${DAOS_CONT} #optional
 daos container create --type POSIX ${DAOS_POOL}  ${DAOS_CONT} --properties rd_fac:1 
 daos container query     ${DAOS_POOL}  ${DAOS_CONT} #optional
 daos container get-prop  ${DAOS_POOL}  ${DAOS_CONT} #optional
-daos container list      ${DAOS_POOL}  #optional
-launch-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}
+daos container list      ${DAOS_POOL}               #optional
+launch-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}           # To mount on a compute node 
+
+# mkdir -p /tmp/${DAOS_POOL}/${DAOS_CONT}           # To mount on a login node
+# start-dfuse.sh -m /tmp/${DAOS_POOL}/${DAOS_CONT}     --pool ${DAOS_POOL} --cont ${DAOS_CONT}  # To mount on a login node
+
 mount|grep dfuse                                    #optional
 ls /tmp/${DAOS_POOL}/${DAOS_CONT}                   #optional
 
@@ -55,4 +59,5 @@ LD_PRELOAD=/usr/lib64/libpil4dfs.so mpiexec -np ${NRANKS} -ppn ${RANKS_PER_NODE}
                                             -s 0 -t 2 -g 1 -c 10 -o 1  /tmp/datascience/thunder_1/real-sim_M100000_K25000_S0.836 
 date
 
-clean-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}
+clean-dfuse.sh ${DAOS_POOL}:${DAOS_CONT} #to unmount on compute node
+# fusermount3 -u /tmp/${DAOS_POOL}/${DAOS_CONT} #to unmount on login node
