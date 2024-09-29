@@ -8,6 +8,9 @@
 
 # qsub -l select=512:ncpus=208 -l walltime=01:00:00 -A Aurora_deployment -l filesystems=flare -q lustre_scaling  -ldaos=default  ./pbs_script.sh or - I 
 
+
+# please do not miss -ldaos=default in your qsub :'(
+
 export TZ='/usr/share/zoneinfo/US/Central'
 date
 module use /soft/modulefiles
